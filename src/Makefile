@@ -58,7 +58,50 @@ else ifeq ($(TARGET),TOMU)
 	           -DHAVE_CAPSENSE -DTARGET_TOMU
 	LDSCRIPT = efm32hg.ld
 	BOARD    = $(CHOPSTX)/board/board-tomu.h
+
+	
+	# blackpill, stm32f103, /led:PB12, /btn:PC6
+else ifeq ($(TARGET),BLACK_PILL_BTN_B8)
+	MCU      = cortex-m3
+	CHIP     = stm32f103
+	DRIVERS  = pbt.c
+	DEFS     = -DUSE_SYS3 -DFREE_STANDING -DTARGET_BLACK_PILL -DHAVE_PUSH_BUTTON
+	LDSCRIPT = stm32f103.ld
+	BOARD    = $(CHOPSTX)/board/board-black-pill.h
+	ENABLE_OUTPUT_HEX = yes
+	
+	# blue pill, stm32f103, /led:PC13, /btn:PB8
+else ifeq ($(TARGET),BLUE_PILL_BTN_B8)
+	MCU      = cortex-m3
+	CHIP     = stm32f103
+	DRIVERS  = pbt.c
+	DEFS     = -DUSE_SYS3 -DFREE_STANDING -DTARGET_BLUE_PILL -DHAVE_PUSH_BUTTON
+	LDSCRIPT = stm32f103.ld
+	BOARD    = $(CHOPSTX)/board/board-blue-pill.h
+	ENABLE_OUTPUT_HEX = yes
+		
+	# st-link_v2_mini, stm32f103, /led:PB12, /btn:PA2
+else ifeq ($(TARGET),ST_DONGLE_BTN_PA2)
+	MCU      = cortex-m3
+	CHIP     = stm32f103
+	DRIVERS  = pbt.c
+	DEFS     = -DUSE_SYS3 -DFREE_STANDING -DST_DONGLE_BTN_PA2 -DHAVE_PUSH_BUTTON
+	LDSCRIPT = stm32f103.ld
+	BOARD    = myboards/board-st-dongle.h
+	ENABLE_OUTPUT_HEX = yes
+	
+	# st-link_v2_mini, stm32f103, /led:PB12, /btn:PB8
+else ifeq ($(TARGET),ST_DONGLE_BTN_PB8)
+	MCU      = cortex-m3
+	CHIP     = stm32f103
+	DRIVERS  = pbt.c
+	DEFS     = -DUSE_SYS3 -DFREE_STANDING -DST_DONGLE_BTN_PB8 -DHAVE_PUSH_BUTTON
+	LDSCRIPT = stm32f103.ld
+	BOARD    = myboards/board-st-dongle.h
+	ENABLE_OUTPUT_HEX = yes
+
 endif
+
 
 ifeq ($(ENFORCE_DEBUG_LOCK),1)
 DEFS += -DENFORCE_DEBUG_LOCK
@@ -93,7 +136,8 @@ LIBS  =
 include $(CHOPSTX)/rules.mk
 
 board.h:
-	ln -s $(BOARD) board.h
+	ln $(BOARD) board.h
+#	ln -s $(BOARD) board.h  "-s" Function not implemented on BusyBox for Windows  
 
 cert/certificates.c:
 	$(GENCERT_CMD)

@@ -66,6 +66,10 @@ struct GPIO {
 #define GPIOE_BASE  (APB2PERIPH_BASE + 0x1800)
 #define GPIOE   ((struct GPIO *) GPIOE_BASE)
 
+#define RCC_APB2ENR_IOPAEN	0x00000004
+#define RCC_APB2ENR_IOPBEN	0x00000008
+#define RCC_APB2ENR_IOPCEN	0x00000010
+
 #if defined(TARGET_MAPLE_MINI)
 #define GPIO_PBT_RD    8
 #define GPIO_PBT_BASE  GPIOB_BASE
@@ -78,11 +82,48 @@ struct GPIO {
 #define GPIO_PBT_RD    14
 #define GPIO_PBT_BASE  GPIOC_BASE
 #define GPIO_PBT_IS_LO 1
+
+#elif defined(TARGET_BLACK_PILL)
+#define GPIO_PBT_RD    13
+#define GPIO_PBT_BASE  GPIOC_BASE
+#define GPIO_PBT_IS_LO 1
+#define GPIO_PBT_CLK_EN() RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+#define GPIO_PBT_AFIO_EXTICR()  do{AFIO->EXTICR[3] &= ~(15<<4);AFIO->EXTICR[3] |= (2<<4);}while(0) // PC13
+
+#elif defined(TARGET_BLUE_PILL)
+#define GPIO_PBT_RD    8
+#define GPIO_PBT_BASE  GPIOB_BASE
+#define GPIO_PBT_IS_LO 1
+#define GPIO_PBT_CLK_EN() RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+#define GPIO_PBT_AFIO_EXTICR()  do{AFIO->EXTICR[2] &= ~(15<<0);AFIO->EXTICR[2] |= (1<<0);}while(0) // PB8
+
+#elif defined(TARGET_ST_DONGLE)
+#define GPIO_PBT_RD    5
+#define GPIO_PBT_BASE  GPIOA_BASE
+#define GPIO_PBT_IS_LO 1
+#define GPIO_PBT_CLK_EN() RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+#define GPIO_PBT_AFIO_EXTICR()  do{AFIO->EXTICR[1] &= ~(15<<4);AFIO->EXTICR[1] |= (0<<4);}while(0) // PA5
+
+#elif defined(ST_DONGLE_BTN_PA2)
+#define GPIO_PBT_RD    2
+#define GPIO_PBT_BASE  GPIOA_BASE
+#define GPIO_PBT_IS_LO 1
+#define GPIO_PBT_CLK_EN() RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+#define GPIO_PBT_AFIO_EXTICR()  do{AFIO->EXTICR[0] &= ~(15<<8);AFIO->EXTICR[0] |= (0<<8);}while(0) // PA2
+
+#elif defined(ST_DONGLE_BTN_PB8)
+#define GPIO_PBT_RD    8
+#define GPIO_PBT_BASE  GPIOB_BASE
+#define GPIO_PBT_IS_LO 1
+#define GPIO_PBT_CLK_EN() RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+#define GPIO_PBT_AFIO_EXTICR()  do{AFIO->EXTICR[2] &= ~(15<<0);AFIO->EXTICR[2] |= (1<<0);}while(0) // PB8
+
 #endif
 
 #ifdef GPIO_PBT_BASE
 static struct GPIO *const GPIO_PBT = (struct GPIO *)GPIO_PBT_BASE;
 #endif
+
 
 static int touch = 0;
 
@@ -150,13 +191,28 @@ user_presence_reset (void)
 void
 pbt_init (void)
 {
-  const uint32_t line = GPIO_PBT_RD;
+#ifdef GPIO_PBT_CLK_EN
+  GPIO_PBT_CLK_EN();
+#endif
 
-  /* EXTIx[3:0]: EXTI x configuration (x= 8) - 0001: PB[x] pin */
-  AFIO->EXTICR[2] |= 1;
+#if defined(TARGET_BLUE_PILL) || defined(TARGET_BLACK_PILL) || defined (TARGET_STLINKV2_DONGLE)
+  // input, pullup enable
+  // CNF=10, MODE=00, ODR=1 => input, pullup
+  GPIO_PBT->BSRR = 1<<GPIO_PBT_RD;
+#if (GPIO_PBT_RD > 7)
+  GPIO_PBT->CRH &= ~(0xF << ((GPIO_PBT_RD - 8)*4));
+  GPIO_PBT->CRH |=   0x8 << ((GPIO_PBT_RD - 8)*4);
+#else
+  GPIO_PBT->CRL &= ~(0xF << ((GPIO_PBT_RD - 0)*4));
+  GPIO_PBT->CRL |=   0x8 << ((GPIO_PBT_RD - 0)*4);
+#endif
+#endif
+
+  const uint32_t line = GPIO_PBT_RD;
+  //AFIO->EXTICR[2] |= 1;   // EXTIx[3:0]: EXTI x configuration (x= 8) - 0001: PB[x] pin
+  GPIO_PBT_AFIO_EXTICR();
   EXTI->IMR |= (1 << line);
   EXTI->FTSR |= (1 << line);
-
   chopstx_claim_irq (&intr, line);
 
   chopstx_create (PRIO_PBT, STACK_ADDR_PBT, STACK_SIZE_PBT, pbt, NULL);
